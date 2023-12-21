@@ -156,9 +156,6 @@
   <ItemGroup>
     <ResourceCompile Include="buffer_viewer.rc" />
   </ItemGroup>
-  <ItemGroup>
-    <Image Include="C:\Users\nefre\Desktop\icon.ico" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
