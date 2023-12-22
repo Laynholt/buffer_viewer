@@ -47,6 +47,24 @@ winapp::Window::Window(LPCWSTR class_name, LPCWSTR window_name, int32_t x, int32
 
 	_hmenu = CreateMenu();
 	AppendMenu(_hmenu, MF_STRING, MESSAGE_MENU_HISTORY, L"Открыть историю");
+
+	// Инициализация данных для иконки в трее
+	_notify_data.cbSize = sizeof(NOTIFYICONDATA);
+	_notify_data.hWnd = _hwnd;
+	_notify_data.uID = 1;
+	_notify_data.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+	_notify_data.uCallbackMessage = MESSAGE_TRAY_CALLBACK;
+	_notify_data.hIcon = LoadIcon(_hinstance, MAKEINTRESOURCE(IDI_ICON1));
+	lstrcpy(_notify_data.szTip, TEXT("Буфер-Гляделка"));
+
+	// Добавление иконки в трей
+	Shell_NotifyIcon(NIM_ADD, &_notify_data);
+
+	// Создание контекстного меню
+	_hmenu_tray = CreatePopupMenu();
+	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_OPEN_HISTORY, TEXT("Открыть историю"));
+	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_CLOSE_APP, TEXT("Выход"));
+
 }
 
 std::shared_ptr<winapp::Window> winapp::Window::create(LPCWSTR class_name, LPCWSTR window_name, DWORD style, int32_t x, int32_t y,
@@ -55,7 +73,7 @@ std::shared_ptr<winapp::Window> winapp::Window::create(LPCWSTR class_name, LPCWS
     if (_win_instance.get() == nullptr)
     {
         _win_instance = std::shared_ptr<Window>(new Window(class_name, window_name,
-            x, y, width, height, hwnd_parent, hmenu, hinstance, WS_OVERLAPPEDWINDOW, param));
+            x, y, width, height, hwnd_parent, hmenu, hinstance, style, param));
 		
 		SendMessage(_win_instance->_hwnd, MESSAGE_MENU_CREATE, NULL, NULL);
     }
@@ -123,7 +141,7 @@ void winapp::Window::_registration(HINSTANCE hinstance)
 LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
 	static LPWSTR text{};
-	static HBITMAP hbitmap{};
+	static HBITMAP hbitmap1{}, hbitmap2{};
 	static WCHAR filePath[MAX_PATH]{};
 
 	static bool crutch_against_event_duplication_when_self_recording_to_the_buffer{};
@@ -221,13 +239,13 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 			else if (is_image)
 			{
 				// Получаем изображение из буфера обмена
-				hbitmap = static_cast<HBITMAP>(GetClipboardData(CF_BITMAP));
+				hbitmap1 = static_cast<HBITMAP>(GetClipboardData(CF_BITMAP));
 
-				if (hbitmap != nullptr)
+				if (hbitmap1 != nullptr)
 				{
 					_win_instance->set_label_text(L"В буфере обмена сейчас изображение:");
 					ShowWindow(_win_instance->get_hwnd_edit(), SW_HIDE);
-					SendMessage(_win_instance->_child, MESSAGE_SEND_IMAGE, NULL, reinterpret_cast<LPARAM>(hbitmap));
+					SendMessage(_win_instance->_child, MESSAGE_SEND_IMAGE, NULL, reinterpret_cast<LPARAM>(hbitmap1));
 				}
 			}
 
@@ -241,13 +259,13 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps);
 
-		if (hbitmap)
+		if (hbitmap1)
 		{			
 			BITMAP bitmap;
-			GetObject(hbitmap, sizeof(BITMAP), &bitmap);
+			GetObject(hbitmap1, sizeof(BITMAP), &bitmap);
 		
 			HDC mdc = CreateCompatibleDC(hdc);
-			HBITMAP old_bitmap = static_cast<HBITMAP>(SelectObject(mdc, hbitmap));
+			HBITMAP old_bitmap = static_cast<HBITMAP>(SelectObject(mdc, hbitmap1));
 
 			RECT rect;
 			GetClientRect(hwnd, &rect);
@@ -286,6 +304,8 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 						GlobalUnlock(hglobal);
 
 						SetClipboardData(CF_UNICODETEXT, hglobal);
+						// GlobalFree вызывать не нужно, тк буфер обмена сам его вызовет, когда мы сменит данные
+						// https://learn.microsoft.com/en-us/answers/questions/607541/(clipboard)-do-i-need-to-call-globalfree-when-usin
 					}
 					else
 						GlobalUnlock(hglobal);
@@ -331,11 +351,12 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 
 				// Создаем новый объект битмапа
 				//hbitmap = CreateBitmapIndirect(&bitmap);
-				DeleteObject(hbitmap);
-				hbitmap = CreateCompatibleBitmap(hdc, bitmap.bmWidth, bitmap.bmHeight);
+				if (hbitmap2)
+					DeleteObject(hbitmap2);
+				hbitmap2 = CreateCompatibleBitmap(hdc, bitmap.bmWidth, bitmap.bmHeight);
 
 				HBITMAP srcorig = static_cast<HBITMAP>(SelectObject(srcdc, static_cast<ImageData*>(data->first)->get_data()));
-				HBITMAP dstorig = static_cast<HBITMAP>(SelectObject(dstdc, hbitmap));
+				HBITMAP dstorig = static_cast<HBITMAP>(SelectObject(dstdc, hbitmap2));
 
 				// Копируем содержимое из исходного битмапа в новый
 				BitBlt(dstdc, 0, 0, bitmap.bmWidth, bitmap.bmHeight, srcdc, 0, 0, SRCCOPY);
@@ -349,7 +370,8 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 				DeleteDC(srcdc);
 				DeleteDC(dstdc);
 
-				SetClipboardData(CF_BITMAP, hbitmap);
+				SetClipboardData(CF_BITMAP, hbitmap2);
+				hbitmap1 = hbitmap2;
 			}
 		}
 		// Закрываем буфер обмена
@@ -404,8 +426,14 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 		break;
 	}
 
-	case MESSAGE_MENU_CREATE:
-		SetMenu(hwnd, _win_instance->_hmenu);
+	case WM_KEYDOWN:
+		switch (wparam)
+		{
+		case 'D':
+			if (GetKeyState(VK_CONTROL) < 0)
+				ShowWindow(_win_instance->_child, SW_NORMAL);
+			break;
+		}
 		break;
 
 	case WM_COMMAND:
@@ -416,16 +444,59 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 			ShowWindow(_win_instance->_child, SW_NORMAL);
 			break;
 
+		case MESSAGE_TRAY_OPEN_HISTORY:
+			ShowWindow(_win_instance->_child, SW_RESTORE);
+			break;
+
+		case MESSAGE_TRAY_CLOSE_APP:
+			PostMessage(hwnd, WM_CLOSE, 0, 0);
+			break;
+
 		default:
 			break;
 		}
 		break;
 	}
 
+	case WM_SYSCOMMAND:
+		// Обработка системных команд
+		switch (LOWORD(wparam))
+		{
+		case SC_MINIMIZE:
+			// Обработка команды сворачивания окна
+			ShowWindow(hwnd, SW_HIDE);  // Скрыть окно
+			ShowWindow(_win_instance->_child, SW_HIDE);  // Скрыть окно
+			return 0;
+		}
+		break;
+
+	case MESSAGE_MENU_CREATE:
+		SetMenu(hwnd, _win_instance->_hmenu);
+		break;
+
+	case MESSAGE_TRAY_CALLBACK:
+		// Обработка событий из иконки в трее
+		switch (LOWORD(lparam)) 
+		{
+		case WM_RBUTTONDOWN:
+			// Отображение контекстного меню при щелчке правой кнопкой мыши на иконке в трее
+			POINT pt;
+			GetCursorPos(&pt);
+			TrackPopupMenu(_win_instance->_hmenu_tray, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
+			break;
+		case WM_LBUTTONDOWN:
+			ShowWindow(hwnd, SW_RESTORE);  // Разворачивание окна
+			break;
+		}
+		break;
+
 	case WM_DESTROY:
 		RemoveClipboardFormatListener(hwnd);
-		DeleteObject(hbitmap);
+		DeleteObject(hbitmap2);
 		DestroyMenu(_win_instance->_hmenu);
+		Shell_NotifyIcon(NIM_DELETE, &_win_instance->_notify_data);
+		DestroyMenu(_win_instance->_hmenu_tray);
+
 		PostQuitMessage(0);
 		return 0;
 	}

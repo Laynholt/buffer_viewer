@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 #include <shlobj_core.h>
+#include <shellapi.h>
 
 #include <memory>
 #include <string>
@@ -46,12 +47,13 @@ namespace winapp
 	private:
 		WNDCLASSEX _wnd_class;
 		HINSTANCE _hinstance;
+		NOTIFYICONDATA _notify_data;
 
 	private:
 		std::wstring _class_name, _window_name;
 
 		HWND _hwnd{ nullptr }, _hwnd_parent{ nullptr };
-		HMENU _hmenu{ nullptr };
+		HMENU _hmenu{ nullptr }, _hmenu_tray{ nullptr };
 		int32_t _x{}, _y{}, _width{}, _height{};
 
 		HWND _hwnd_label{ nullptr }, _hwnd_edit{ nullptr };

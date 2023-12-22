@@ -78,7 +78,7 @@ std::shared_ptr<winapp::ChildWindow> winapp::ChildWindow::create(LPCWSTR class_n
 	if (_win_instance.get() == nullptr)
 	{
 		_win_instance = std::shared_ptr<ChildWindow>(new ChildWindow(class_name, window_name,
-			x, y, width, height, hwnd_parent, hmenu, hinstance, WS_OVERLAPPEDWINDOW, param));
+			x, y, width, height, hwnd_parent, hmenu, hinstance, style, param));
 	}
 	return _win_instance;
 }
@@ -244,9 +244,13 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 
 			int16_t index = std::stoi(str);
 			if (index < _win_instance->_hist_buffer.get_size())
+			{
 				_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
+				SendMessage(hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_DATA_FROM_HISTORY, 0), NULL);
+			}
+			else
+				MessageBox(hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
 
-			SendMessage(hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_DATA_FROM_HISTORY, 0), NULL);
 			return 0;
 		}
 		case VK_BACK:
@@ -304,6 +308,20 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 
 			return 0;
 		}
+		case VK_UP:
+			_win_instance->_set_scroll_pos(_win_instance->_scroll_pos - config::child_window::scroll_step);
+			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
+			break;
+
+		case VK_DOWN:
+			_win_instance->_set_scroll_pos(_win_instance->_scroll_pos + config::child_window::scroll_step);
+			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
+			break;
+
+		case 'D':
+			if (GetKeyState(VK_CONTROL) < 0)
+				ShowWindow(hwnd, SW_HIDE);
+			break;
 		}
 		break;
 
