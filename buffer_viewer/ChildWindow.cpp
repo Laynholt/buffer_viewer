@@ -211,6 +211,8 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		{
 		case MESSAGE_GET_DATA_FROM_HISTORY:
 		{
+			SetFocus(hwnd);
+
 			std::wstring str = _win_instance->_get_text_from_edit();
 			if (str.empty())
 				break;
@@ -221,6 +223,9 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 				MessageBox(hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
 				break;
 			}
+
+			SetWindowText(_win_instance->_hwnd_edit, L"");
+			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
 
 			_temp_history_object_data = _win_instance->_hist_buffer.get_object(_win_instance->_hist_buffer.get_size() - 1 - index);
 			SendMessage(_win_instance->_hwnd_parent, MESSAGE_GET_DATA_FROM_HISTORY, NULL, reinterpret_cast<LPARAM>(&_temp_history_object_data));
@@ -237,75 +242,18 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		{
 		case VK_RETURN:
 		{
-			std::wstring str = _win_instance->_get_text_from_edit();
-			
-			if (str.empty())
-				break;
-
-			int16_t index = std::stoi(str);
-			if (index < _win_instance->_hist_buffer.get_size())
-			{
-				_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
-				SendMessage(hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_DATA_FROM_HISTORY, 0), NULL);
-			}
-			else
-				MessageBox(hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
-
+			_win_instance->_event_handler_enter_key();
 			return 0;
 		}
 		case VK_BACK:
 		{
-			// Если нажат Ctrl + backspace, удаляем весь текст в элементе управления Edit
-			if (GetKeyState(VK_CONTROL) < 0)
-			{
-				SetWindowText(_win_instance->_hwnd_edit, L"");
-				_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
-				break;
-			}
-
-			// Разрешаем использование клавиши Backspace для удаления символов
-			std::wstring str = _win_instance->_get_text_from_edit();
-
-			if (str.empty())
-				break;
-
-			str.pop_back();
-			// Устанавливаем новый текст в Edit
-			SetWindowText(_win_instance->_hwnd_edit, str.c_str());
-			// Меняем положение курсора
-			SendMessage(_win_instance->_hwnd_edit, EM_SETSEL, str.size(), str.size());
-
-			if (str.empty())
-				_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
-			else
-			{
-				int16_t index = std::stoi(str);
-				if (index < _win_instance->_hist_buffer.get_size())
-					_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
-			}
+			_win_instance->_event_handler_backspace_key();
 			return 0;
 		}
 		case '1': case '2': case '3': case '4': case '5':
 		case '6': case '7': case '8': case '9': case '0':
 		{
-			std::wstring str = _win_instance->_get_text_from_edit();
-
-			if (str.size() > 3)
-				break;
-
-			str += static_cast<wchar_t>(wparam);
-
-			// Устанавливаем новый текст в Edit
-			SetWindowText(_win_instance->_hwnd_edit, str.c_str());
-			// Меняем положение курсора
-			SendMessage(_win_instance->_hwnd_edit, EM_SETSEL, str.size(), str.size());
-
-			int16_t index = std::stoi(str);
-			if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
-				_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
-			else
-				_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
-
+			_win_instance->_event_handler_digit_keys(wparam);
 			return 0;
 		}
 		case VK_UP:
@@ -552,6 +500,103 @@ std::wstring winapp::ChildWindow::_get_text_from_edit()
 	return wbuffer;
 }
 
+void winapp::ChildWindow::_event_handler_digit_keys(WPARAM symbol)
+{
+	std::wstring str = _win_instance->_get_text_from_edit();
+
+	if (str.size() > 3)
+		return;
+
+	str += static_cast<wchar_t>(symbol);
+
+	// Устанавливаем новый текст в Edit
+	SetWindowText(_win_instance->_hwnd_edit, str.c_str());
+	// Меняем положение курсора
+	SendMessage(_win_instance->_hwnd_edit, EM_SETSEL, str.size(), str.size());
+
+	int16_t index = std::stoi(str);
+	if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
+		_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
+	else
+		_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
+}
+
+void winapp::ChildWindow::_event_handler_backspace_key()
+{
+	// Если нажат Ctrl + backspace, удаляем весь текст в элементе управления Edit
+	if (GetKeyState(VK_CONTROL) < 0)
+	{
+		SetWindowText(_win_instance->_hwnd_edit, L"");
+		_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
+		return;
+	}
+
+	bool was_removed = false;
+	DWORD start, end;
+	SendMessage(_win_instance->_hwnd_edit, EM_GETSEL, reinterpret_cast<WPARAM>(&start), reinterpret_cast<LPARAM>(&end));
+	if (start != end)
+	{
+		SendMessage(_win_instance->_hwnd_edit, EM_REPLACESEL, TRUE, reinterpret_cast <LPARAM>(L""));
+		was_removed = true;
+	}
+
+	// Разрешаем использование клавиши Backspace для удаления символов
+	std::wstring str = _win_instance->_get_text_from_edit();
+
+	if (str.empty() && !was_removed)
+		return;
+	else if (str.empty())
+	{
+		_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
+	}
+	else
+	{
+		if (!was_removed)
+		{
+			str.pop_back();
+			// Устанавливаем новый текст в Edit
+			SetWindowText(_win_instance->_hwnd_edit, str.c_str());
+			// Меняем положение курсора
+			SendMessage(_win_instance->_hwnd_edit, EM_SETSEL, str.size(), str.size());
+		
+			if (str.empty())
+				_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
+			else
+			{
+				int16_t index = std::stoi(str);
+				if (index < _win_instance->_hist_buffer.get_size())
+					_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
+			}
+			return;
+		}
+
+		int16_t index = std::stoi(str);
+		if (index < _win_instance->_hist_buffer.get_size())
+			_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
+	}
+}
+
+void winapp::ChildWindow::_event_handler_enter_key()
+{
+	SetFocus(_win_instance->_hwnd);
+
+	std::wstring str = _win_instance->_get_text_from_edit();
+
+	if (str.empty())
+		return;
+
+	int16_t index = std::stoi(str);
+	if (index < _win_instance->_hist_buffer.get_size())
+	{
+		SendMessage(_win_instance->_hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_DATA_FROM_HISTORY, 0), NULL);
+	}
+	else
+	{
+		MessageBox(_win_instance->_hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
+		SetWindowText(_win_instance->_hwnd_edit, L"");
+	}
+}
+
 LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, UINT_PTR idsubclass, DWORD_PTR refdata)
 {
 	switch (message)
@@ -559,18 +604,19 @@ LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, 
 	case WM_KEYDOWN:
 		switch (wparam)
 		{
-		case VK_BACK:
-			// Если нажат Ctrl + backspace, удаляем весь текст в элементе управления Edit
-			if (GetKeyState(VK_CONTROL) < 0)
-			{
-				SetWindowText(hwnd, L"");
-				break;
-			}
+		case VK_RETURN:
+		{
+			_win_instance->_event_handler_enter_key();
+			return 0;
+		}
 
 		case 'A':
 			// Если нажат Ctrl + A, выделяем весь текст в элементе управления Edit
-			SendMessage(hwnd, EM_SETSEL, 0, -1);
-			return 0;
+			if (GetKeyState(VK_CONTROL) < 0)
+			{
+				SendMessage(hwnd, EM_SETSEL, 0, -1);
+				return 0;
+			}
 		}
 		
 		break;
@@ -580,47 +626,12 @@ LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, 
 		// Фильтрация ввода только для цифр
 		if (iswdigit(wparam))
 		{
-			DWORD start, end;
-			SendMessage(hwnd, EM_GETSEL, reinterpret_cast<WPARAM>(&start), reinterpret_cast<LPARAM>(&end));
-			if (start != end)
-			{
-				SendMessage(hwnd, EM_REPLACESEL, TRUE, reinterpret_cast <LPARAM>(L""));
-			}
-
-			std::wstring str = _win_instance->_get_text_from_edit();
-
-			if (str.size() > 3)
-				break;
-
-			str += static_cast<wchar_t>(wparam);
-
-			// Устанавливаем новый текст в Edit
-			SetWindowText(hwnd, str.c_str());
-			// Меняем положение курсора
-			SendMessage(hwnd, EM_SETSEL, str.size(), str.size());
+			_win_instance->_event_handler_digit_keys(wparam);
 			return 0;
 		}
 		else if (wparam == VK_BACK)
 		{
-			DWORD start, end;
-			SendMessage(hwnd, EM_GETSEL, reinterpret_cast<WPARAM>(&start), reinterpret_cast<LPARAM>(&end));
-			if (start != end) 
-			{
-				SendMessage(hwnd, EM_REPLACESEL, TRUE, reinterpret_cast <LPARAM>(L""));
-				return 0;
-			}
-
-			// Разрешаем использование клавиши Backspace для удаления символов
-			std::wstring str = _win_instance->_get_text_from_edit();
-
-			if (str.size() == 0)
-				break;
-
-			str.pop_back();
-			// Устанавливаем новый текст в Edit
-			SetWindowText(hwnd, str.c_str());
-			// Меняем положение курсора
-			SendMessage(hwnd, EM_SETSEL, str.size(), str.size());
+			_win_instance->_event_handler_backspace_key();
 			return 0;
 		}
 		else

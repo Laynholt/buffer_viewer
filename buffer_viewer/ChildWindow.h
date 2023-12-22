@@ -42,6 +42,10 @@ namespace winapp
 		int32_t _get_max_scroll_size();
 		std::wstring _get_text_from_edit();
 
+		void _event_handler_digit_keys(WPARAM symbol);
+		void _event_handler_backspace_key();
+		void _event_handler_enter_key();
+
 	private:
 		static std::shared_ptr<ChildWindow> _win_instance;
 

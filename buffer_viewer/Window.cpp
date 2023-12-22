@@ -294,7 +294,7 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 
 			if (data->second == DataType::TEXT)
 			{
-				HGLOBAL hglobal = GlobalAlloc(GMEM_MOVEABLE, static_cast<TextData*>(data->first)->get_data().size() * sizeof(WCHAR));
+				HGLOBAL hglobal = GlobalAlloc(GMEM_MOVEABLE, (static_cast<TextData*>(data->first)->get_data().size() + 1) * sizeof(WCHAR));
 				if (hglobal != nullptr)
 				{
 					LPWSTR pglobal = static_cast<LPWSTR>(GlobalLock(hglobal));
@@ -314,6 +314,14 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 
 			else if (data->second == DataType::FILE_PATH)
 			{
+				// Проверяем, не удален ли файл
+				DWORD file_avaliable = GetFileAttributes(static_cast<TextData*>(data->first)->get_data().c_str());
+				if (file_avaliable == INVALID_FILE_ATTRIBUTES)
+				{
+					MessageBox(hwnd, L"Файл по указанному пути был удален!", L"Ошибка", MB_OK | MB_ICONERROR);
+					break;
+				}
+
 				// https://stackoverflow.com/questions/25708895/how-to-copy-files-by-win32-api-functions-and-paste-by-ctrlv-in-my-desktop
 				// https://devblogs.microsoft.com/oldnewthing/20130520-00/?p=4313
 				int32_t size = sizeof(DROPFILES) + (static_cast<TextData*>(data->first)->get_data().size() + 2) * sizeof(WCHAR);
