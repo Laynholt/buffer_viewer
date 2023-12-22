@@ -52,7 +52,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_ICON1               ICON                   "F:\\Code\\VisualStudio\\C++\\WinApi\\work\\buffer_viewer\\buffer_viewer\\icon.ico"
+IDI_ICON1               ICON                   "icon.ico"
 
 #endif    // Русский (Россия) resources
 /////////////////////////////////////////////////////////////////////////////

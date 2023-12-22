@@ -37,8 +37,10 @@ namespace winapp
 
 		void _set_scroll_pos(int32_t pos_delta);
 		void _update_scroll_size();
+		int32_t _get_widget_pack_position(int32_t index);
 		int32_t _get_widget_pack_size();
 		int32_t _get_max_scroll_size();
+		std::wstring _get_text_from_edit();
 
 	private:
 		static std::shared_ptr<ChildWindow> _win_instance;
@@ -47,6 +49,7 @@ namespace winapp
 		HistoryBuffer _hist_buffer;
 		std::vector<HWND> _widgets;
 		int32_t _scroll_pos{};
+		int32_t _old_scroll_pos{};
 
 	private:
 		WNDCLASSEX _wnd_class;

@@ -211,21 +211,18 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		{
 		case MESSAGE_GET_DATA_FROM_HISTORY:
 		{
-			WCHAR buffer[5]{};
-			GetWindowText(_win_instance->_hwnd_edit, buffer, 5);
-			std::wstring wbuffer = buffer;
-
-			if (wbuffer.empty())
+			std::wstring str = _win_instance->_get_text_from_edit();
+			if (str.empty())
 				break;
-			
-			int16_t index = std::stoi(wbuffer);
+
+			int16_t index = std::stoi(str);
 			if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
 			{
 				MessageBox(hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
 				break;
 			}
 
-			_temp_history_object_data = _win_instance->_hist_buffer.get_object(index); // _win_instance->_hist_buffer.get_size() - 1 - index
+			_temp_history_object_data = _win_instance->_hist_buffer.get_object(_win_instance->_hist_buffer.get_size() - 1 - index);
 			SendMessage(_win_instance->_hwnd_parent, MESSAGE_GET_DATA_FROM_HISTORY, NULL, reinterpret_cast<LPARAM>(&_temp_history_object_data));
 			break;
 		}
@@ -234,6 +231,81 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		}
 		break;
 	}
+
+	case WM_KEYDOWN:
+		switch (wparam)
+		{
+		case VK_RETURN:
+		{
+			std::wstring str = _win_instance->_get_text_from_edit();
+			
+			if (str.empty())
+				break;
+
+			int16_t index = std::stoi(str);
+			if (index < _win_instance->_hist_buffer.get_size())
+				_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
+
+			SendMessage(hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_DATA_FROM_HISTORY, 0), NULL);
+			return 0;
+		}
+		case VK_BACK:
+		{
+			// Если нажат Ctrl + backspace, удаляем весь текст в элементе управления Edit
+			if (GetKeyState(VK_CONTROL) < 0)
+			{
+				SetWindowText(_win_instance->_hwnd_edit, L"");
+				_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
+				break;
+			}
+
+			// Разрешаем использование клавиши Backspace для удаления символов
+			std::wstring str = _win_instance->_get_text_from_edit();
+
+			if (str.empty())
+				break;
+
+			str.pop_back();
+			// Устанавливаем новый текст в Edit
+			SetWindowText(_win_instance->_hwnd_edit, str.c_str());
+			// Меняем положение курсора
+			SendMessage(_win_instance->_hwnd_edit, EM_SETSEL, str.size(), str.size());
+
+			if (str.empty())
+				_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
+			else
+			{
+				int16_t index = std::stoi(str);
+				if (index < _win_instance->_hist_buffer.get_size())
+					_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
+			}
+			return 0;
+		}
+		case '1': case '2': case '3': case '4': case '5':
+		case '6': case '7': case '8': case '9': case '0':
+		{
+			std::wstring str = _win_instance->_get_text_from_edit();
+
+			if (str.size() > 3)
+				break;
+
+			str += static_cast<wchar_t>(wparam);
+
+			// Устанавливаем новый текст в Edit
+			SetWindowText(_win_instance->_hwnd_edit, str.c_str());
+			// Меняем положение курсора
+			SendMessage(_win_instance->_hwnd_edit, EM_SETSEL, str.size(), str.size());
+
+			int16_t index = std::stoi(str);
+			if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
+				_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
+			else
+				_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
+
+			return 0;
+		}
+		}
+		break;
 
 	case WM_CTLCOLORSTATIC:
 	case WM_CTLCOLOREDIT:
@@ -269,19 +341,19 @@ LRESULT CALLBACK winapp::ChildWindow::SubChildWindowEventHander(HWND hwnd, UINT 
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps);
 
-		int32_t _current_widget_pos = config::child_window::widget_start_h;
-		int16_t couter{}, rev_counter{};
+		int32_t _current_widget_pos = _win_instance->_get_max_scroll_size() - _win_instance->_get_widget_pack_size();
+		int16_t buffer_size{};
+		int16_t rev_counter{};
 		int16_t wcouter{};
 
 		int16_t pos = _win_instance->_scroll_pos;
-		rev_counter = _win_instance->_hist_buffer.get_size() - 1;
+		rev_counter = buffer_size = _win_instance->_hist_buffer.get_size() - 1;
 
-		//for (int16_t i = rev_counter; i >= 0; --i)
-		for (int16_t i = 0; i <= rev_counter; ++i)
+		for (int16_t counter = 0; counter <= buffer_size; ++counter, --rev_counter)
 		{
-			auto data = _win_instance->_hist_buffer.get_object(i);
+			auto data = _win_instance->_hist_buffer.get_object(counter);
 
-			std::wstring str_num = std::to_wstring(couter);
+			std::wstring str_num = std::to_wstring(rev_counter);
 			std::wstring title = data.second == DataType::TEXT ? L"] Текст:" : data.second == DataType::FILE_PATH ? L"] Файл:" : L"] Изображение";
 			title = str_num + title;
 
@@ -325,7 +397,7 @@ LRESULT CALLBACK winapp::ChildWindow::SubChildWindowEventHander(HWND hwnd, UINT 
 
 				_current_widget_pos += config::child_window::edit_h + config::child_window::widget_padding_h;
 			}
-			++couter;
+			_current_widget_pos -= 2 * _win_instance->_get_widget_pack_size();
 		}
 		EndPaint(hwnd, &ps);
 		UpdateWindow(hwnd);
@@ -356,6 +428,7 @@ LRESULT CALLBACK winapp::ChildWindow::SubChildWindowEventHander(HWND hwnd, UINT 
 			break;
 		
 		_win_instance->_set_scroll_pos(pos);
+		_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
 		break;
 	}
 
@@ -366,6 +439,7 @@ LRESULT CALLBACK winapp::ChildWindow::SubChildWindowEventHander(HWND hwnd, UINT 
 		int32_t pos = _win_instance->_scroll_pos + step;
 
 		_win_instance->_set_scroll_pos(pos);
+		_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
 		break;
 	}
 
@@ -436,6 +510,11 @@ void winapp::ChildWindow::_update_scroll_size()
 	SetScrollInfo(_hwnd_visual, SB_VERT, &si, true);
 }
 
+int32_t winapp::ChildWindow::_get_widget_pack_position(int32_t index)
+{
+	return config::child_window::widget_start_h + _get_widget_pack_size() * index;
+}
+
 int32_t winapp::ChildWindow::_get_widget_pack_size()
 {
 	return config::child_window::label_h + config::child_window::edit_padding_y 
@@ -444,7 +523,15 @@ int32_t winapp::ChildWindow::_get_widget_pack_size()
 
 int32_t winapp::ChildWindow::_get_max_scroll_size()
 {
-	return config::child_window::widget_start_h + _get_widget_pack_size() * _hist_buffer.get_size();
+	return _get_widget_pack_position(_hist_buffer.get_size());
+}
+
+std::wstring winapp::ChildWindow::_get_text_from_edit()
+{
+	WCHAR buffer[5]{};
+	GetWindowText(_hwnd_edit, buffer, 5);
+	std::wstring wbuffer = buffer;
+	return wbuffer;
 }
 
 LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, UINT_PTR idsubclass, DWORD_PTR refdata)
@@ -482,9 +569,7 @@ LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, 
 				SendMessage(hwnd, EM_REPLACESEL, TRUE, reinterpret_cast <LPARAM>(L""));
 			}
 
-			WCHAR buffer[5]{};
-			GetWindowText(hwnd, buffer, 5);
-			std::wstring str = buffer;
+			std::wstring str = _win_instance->_get_text_from_edit();
 
 			if (str.size() > 3)
 				break;
@@ -508,9 +593,7 @@ LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, 
 			}
 
 			// Разрешаем использование клавиши Backspace для удаления символов
-			WCHAR buffer[5]{};
-			GetWindowText(hwnd, buffer, 5);
-			std::wstring str = buffer;
+			std::wstring str = _win_instance->_get_text_from_edit();
 
 			if (str.size() == 0)
 				break;
