@@ -99,6 +99,8 @@ namespace winapp
 		void add_filepath_data(LPWSTR data);
 		void add_image_data(HBITMAP data);
 
+		void clear();
+
 		std::pair<BaseData*, DataType> get_object(int16_t index);
 		
 		int32_t get_size() { return _buffer_ind.size(); }

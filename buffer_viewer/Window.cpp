@@ -63,9 +63,33 @@ winapp::Window::Window(LPCWSTR class_name, LPCWSTR window_name, int32_t x, int32
 	// Создание контекстного меню
 	_hmenu_tray = CreatePopupMenu();
 	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_OPEN_HISTORY, TEXT("Открыть историю"));
+	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_CLEAR_HISTORY, TEXT("Очистить историю"));
 	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_CLOSE_APP, TEXT("Выход"));
 
+	_hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookProc, _hinstance, NULL);
 }
+
+LRESULT winapp::Window::KeyboardHookProc(int32_t code, WPARAM wparam, LPARAM lparam)
+{
+	if (code >= 0) 
+	{
+		// Обработка клавиш
+		KBDLLHOOKSTRUCT* key_info = reinterpret_cast<KBDLLHOOKSTRUCT*>(lparam);
+		// Проверка на сочетание клавиш Ctrl + Alt + D
+		if (key_info->vkCode == 'D' && (GetAsyncKeyState(VK_MENU) & 0x8000)) // && (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+		{
+			ShowWindow(_win_instance->_child, SW_SHOWNORMAL);
+		}
+		else if (key_info->vkCode == 'E' && (GetAsyncKeyState(VK_MENU) & 0x8000))
+		{
+			ShowWindow(_win_instance->_child, SW_HIDE);
+		}
+	}
+
+	// Передать управление следующему хуку в цепочке
+	return CallNextHookEx(_win_instance->_hook, code, wparam, lparam);
+}
+
 
 std::shared_ptr<winapp::Window> winapp::Window::create(LPCWSTR class_name, LPCWSTR window_name, DWORD style, int32_t x, int32_t y,
     int32_t width, int32_t height, HWND hwnd_parent, HMENU hmenu, HINSTANCE hinstance, LPVOID param)
@@ -101,6 +125,9 @@ winapp::Window::~Window()
 
 	if (_brush_edit_bg != nullptr)
 		DeleteObject(_brush_edit_bg);
+
+	if (_hook != nullptr)
+		UnhookWindowsHookEx(_hook);
 }
 
 void winapp::Window::set_label_text(LPCWSTR text)
@@ -434,26 +461,20 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 		break;
 	}
 
-	case WM_KEYDOWN:
-		switch (wparam)
-		{
-		case 'D':
-			if (GetKeyState(VK_CONTROL) < 0)
-				ShowWindow(_win_instance->_child, SW_NORMAL);
-			break;
-		}
-		break;
-
 	case WM_COMMAND:
 	{
 		switch (wparam)
 		{
 		case MESSAGE_MENU_HISTORY:
-			ShowWindow(_win_instance->_child, SW_NORMAL);
+			ShowWindow(_win_instance->_child, SW_SHOWNORMAL);
 			break;
 
 		case MESSAGE_TRAY_OPEN_HISTORY:
-			ShowWindow(_win_instance->_child, SW_RESTORE);
+			ShowWindow(_win_instance->_child, SW_SHOWNORMAL);
+			break;
+
+		case MESSAGE_TRAY_CLEAR_HISTORY:
+			SendMessage(_win_instance->_child, MESSAGE_TRAY_CLEAR_HISTORY, NULL, NULL);
 			break;
 
 		case MESSAGE_TRAY_CLOSE_APP:
@@ -490,10 +511,11 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 			// Отображение контекстного меню при щелчке правой кнопкой мыши на иконке в трее
 			POINT pt;
 			GetCursorPos(&pt);
+			SetForegroundWindow(hwnd);
 			TrackPopupMenu(_win_instance->_hmenu_tray, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
 			break;
 		case WM_LBUTTONDOWN:
-			ShowWindow(hwnd, SW_RESTORE);  // Разворачивание окна
+			ShowWindow(hwnd, SW_SHOWNORMAL);  // Разворачивание окна
 			break;
 		}
 		break;

@@ -205,6 +205,22 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		break;
 	}
 
+	case MESSAGE_TRAY_CLEAR_HISTORY:
+		_win_instance->_hist_buffer.clear();
+
+		for (auto& widget : _win_instance->_widgets)
+			DestroyWindow(widget);
+
+		_win_instance->_widgets.clear();
+		_win_instance->_widgets.shrink_to_fit();
+
+		_win_instance->_scroll_pos = 0;
+		_win_instance->_old_scroll_pos = 0;
+
+		_win_instance->_update_scroll_size();
+		InvalidateRect(_win_instance->_hwnd_visual, nullptr, TRUE);
+		break;
+
 	case WM_COMMAND:
 	{
 		switch (LOWORD(wparam))
@@ -217,6 +233,8 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 			if (str.empty())
 				break;
 
+			SetWindowText(_win_instance->_hwnd_edit, L"");
+
 			int16_t index = std::stoi(str);
 			if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
 			{
@@ -224,7 +242,6 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 				break;
 			}
 
-			SetWindowText(_win_instance->_hwnd_edit, L"");
 			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
 
 			_temp_history_object_data = _win_instance->_hist_buffer.get_object(_win_instance->_hist_buffer.get_size() - 1 - index);
@@ -257,18 +274,13 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 			return 0;
 		}
 		case VK_UP:
-			_win_instance->_set_scroll_pos(_win_instance->_scroll_pos - config::child_window::scroll_step);
+			_win_instance->_set_scroll_pos(_win_instance->_scroll_pos - _win_instance->_get_widget_pack_size());
 			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
 			break;
 
 		case VK_DOWN:
-			_win_instance->_set_scroll_pos(_win_instance->_scroll_pos + config::child_window::scroll_step);
+			_win_instance->_set_scroll_pos(_win_instance->_scroll_pos + _win_instance->_get_widget_pack_size());
 			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
-			break;
-
-		case 'D':
-			if (GetKeyState(VK_CONTROL) < 0)
-				ShowWindow(hwnd, SW_HIDE);
 			break;
 		}
 		break;
@@ -524,7 +536,7 @@ void winapp::ChildWindow::_event_handler_digit_keys(WPARAM symbol)
 void winapp::ChildWindow::_event_handler_backspace_key()
 {
 	// Если нажат Ctrl + backspace, удаляем весь текст в элементе управления Edit
-	if (GetKeyState(VK_CONTROL) < 0)
+	if (GetKeyState(VK_CONTROL) & 0x8000)
 	{
 		SetWindowText(_win_instance->_hwnd_edit, L"");
 		_win_instance->_set_scroll_pos(_win_instance->_old_scroll_pos);
@@ -612,7 +624,7 @@ LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, 
 
 		case 'A':
 			// Если нажат Ctrl + A, выделяем весь текст в элементе управления Edit
-			if (GetKeyState(VK_CONTROL) < 0)
+			if (GetKeyState(VK_CONTROL) & 0x8000)
 			{
 				SendMessage(hwnd, EM_SETSEL, 0, -1);
 				return 0;

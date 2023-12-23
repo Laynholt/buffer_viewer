@@ -40,6 +40,7 @@ namespace winapp
 		void _registration(HINSTANCE hinstance);
 
 		static LRESULT CALLBACK MainWindowEventHander(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
+		static LRESULT CALLBACK KeyboardHookProc(int32_t code, WPARAM wparam, LPARAM lparam);
 
 	private:
 		static std::shared_ptr<Window> _win_instance;
@@ -51,6 +52,8 @@ namespace winapp
 
 	private:
 		std::wstring _class_name, _window_name;
+
+		HHOOK _hook{ nullptr };
 
 		HWND _hwnd{ nullptr }, _hwnd_parent{ nullptr };
 		HMENU _hmenu{ nullptr }, _hmenu_tray{ nullptr };

@@ -15,6 +15,17 @@ void winapp::HistoryBuffer::add_image_data(HBITMAP data)
 	_add_data(data, DataType::IMAGE);
 }
 
+void winapp::HistoryBuffer::clear()
+{
+	_buffer_ind.clear();
+	_text_data.clear();
+	_image_data.clear();
+
+	_buffer_ind.shrink_to_fit();
+	_text_data.shrink_to_fit();
+	_image_data.shrink_to_fit();
+}
+
 std::pair<winapp::BaseData*, winapp::DataType> winapp::HistoryBuffer::get_object(int16_t index)
 {
 	if (index < 0 || index >= _buffer_ind.size())
