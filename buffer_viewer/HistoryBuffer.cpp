@@ -15,39 +15,40 @@ void winapp::HistoryBuffer::add_image_data(HBITMAP data)
 	_add_data(data, DataType::IMAGE);
 }
 
-void winapp::HistoryBuffer::pop_first()
+void winapp::HistoryBuffer::erase(int32_t index)
 {
-	if (!_buffer_ind.size())
+	if (!_buffer_ind.size() || _buffer_ind.size() <= index)
 		return;
 
-	auto object_type = _buffer_ind.begin()->second;
+	auto object = _buffer_ind.begin() + index;
+	auto object_type = object->second;
 	if (object_type == DataType::TEXT || object_type == DataType::FILE_PATH)
 	{
-		_text_data.erase(_text_data.begin());
+		_text_data.erase(_text_data.begin() + object->first);
 	}
 	else if (object_type == DataType::IMAGE)
 	{
-		_image_data.erase(_image_data.begin());
+		_image_data.erase(_image_data.begin() + object->first);
 	}
-	_buffer_ind.erase(_buffer_ind.begin());
-
-	for (auto& data_ind : _buffer_ind)
+	
+	for (auto it = object + 1; it != _buffer_ind.end(); ++it)
 	{
 		if (object_type == DataType::TEXT || object_type == DataType::FILE_PATH)
 		{
-			if (data_ind.second == DataType::TEXT || data_ind.second == DataType::FILE_PATH)
+			if (it->second == DataType::TEXT || it->second == DataType::FILE_PATH)
 			{
-				data_ind.first -= 1;
+				it->first -= 1;
 			}
 		}
 		else if (object_type == DataType::IMAGE)
 		{
-			if (data_ind.second == DataType::IMAGE)
+			if (it->second == DataType::IMAGE)
 			{
-				data_ind.first -= 1;
+				it->first -= 1;
 			}
 		}
 	}
+	_buffer_ind.erase(object);
 }
 
 void winapp::HistoryBuffer::clear()

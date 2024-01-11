@@ -309,7 +309,7 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 	}
 	break;
 
-	case MESSAGE_GET_DATA_FROM_HISTORY:
+	case MESSAGE_GET_CUR_DATA_FROM_HISTORY:
 	{
 		auto data = reinterpret_cast<std::pair<BaseData*, DataType>*>(lparam);
 

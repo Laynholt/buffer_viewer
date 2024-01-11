@@ -42,6 +42,8 @@ namespace winapp
 		int32_t _get_max_scroll_size();
 		std::wstring _get_text_from_edit();
 
+		void _delete_current_element(int32_t index);
+
 		void _event_handler_digit_keys(WPARAM symbol);
 		void _event_handler_backspace_key();
 		void _event_handler_enter_key();
@@ -66,7 +68,7 @@ namespace winapp
 		HMENU _hmenu{ nullptr };
 		int32_t _x{}, _y{}, _width{}, _height{};
 
-		HWND _hwnd_label{ nullptr }, _hwnd_edit{ nullptr }, _hwnd_button{ nullptr };
+		HWND _hwnd_label{ nullptr }, _hwnd_edit{ nullptr }, _hwnd_button_copy{ nullptr }, _hwnd_button_delete{ nullptr };
 		HWND _hwnd_scroll{ nullptr };
 
 		HFONT _font_edit{ nullptr }, _font_title{ nullptr };

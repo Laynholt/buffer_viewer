@@ -33,9 +33,12 @@ winapp::ChildWindow::ChildWindow(LPCWSTR class_name, LPCWSTR window_name, int32_
 	_hwnd_edit = CreateWindow(L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_CENTER | WS_BORDER,
 		config::child_window::main_edit_x, config::child_window::main_edit_y, config::child_window::main_edit_w, config::child_window::main_edit_h,
 		_hwnd, nullptr, nullptr, nullptr);
-	_hwnd_button = CreateWindow(L"BUTTON", L"Скопировать в буфер обмена", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-		config::child_window::main_button_x, config::child_window::main_button_y, config::child_window::main_button_w, config::child_window::main_button_h,
-		_hwnd, reinterpret_cast<HMENU>(MESSAGE_GET_DATA_FROM_HISTORY), nullptr, nullptr);
+	_hwnd_button_copy = CreateWindow(L"BUTTON", L"Копировать", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+		config::child_window::main_button1_x, config::child_window::main_button1_y, config::child_window::main_button1_w, config::child_window::main_button1_h,
+		_hwnd, reinterpret_cast<HMENU>(MESSAGE_GET_CUR_DATA_FROM_HISTORY), nullptr, nullptr);
+	_hwnd_button_delete = CreateWindow(L"BUTTON", L"Удалить", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+		config::child_window::main_button2_x, config::child_window::main_button2_y, config::child_window::main_button2_w, config::child_window::main_button2_h,
+		_hwnd, reinterpret_cast<HMENU>(MESSAGE_DEL_CUR_DATA_FROM_HISTORY), nullptr, nullptr);
 
 	SetWindowSubclass(_hwnd_edit, EditSubClassProc, NULL, NULL);
 
@@ -47,7 +50,8 @@ winapp::ChildWindow::ChildWindow(LPCWSTR class_name, LPCWSTR window_name, int32_
 
 	SendMessage(_hwnd_label, WM_SETFONT, reinterpret_cast<WPARAM>(_font_title), TRUE);
 	SendMessage(_hwnd_edit, WM_SETFONT, reinterpret_cast<WPARAM>(_font_title), TRUE);
-	SendMessage(_hwnd_button, WM_SETFONT, reinterpret_cast<WPARAM>(_font_title), TRUE);
+	SendMessage(_hwnd_button_copy, WM_SETFONT, reinterpret_cast<WPARAM>(_font_title), TRUE);
+	SendMessage(_hwnd_button_delete, WM_SETFONT, reinterpret_cast<WPARAM>(_font_title), TRUE);
 
 	_hwnd_visual = CreateWindow(L"SubVisualWindow", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL,
 		0, 0, width, height, _hwnd, nullptr, nullptr, nullptr);
@@ -163,9 +167,13 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		int16_t new_height = HIWORD(lparam);
 
 		// Изменяем размеры title button
-		SetWindowPos(_win_instance->_hwnd_button, nullptr,
-			config::child_window::main_button_x, config::child_window::main_button_y,
-			new_width - config::child_window::main_button_x, config::child_window::main_button_h, SWP_NOZORDER);
+		SetWindowPos(_win_instance->_hwnd_button_copy, nullptr,
+			config::child_window::main_button1_x, config::child_window::main_button1_y,
+			(new_width - config::child_window::main_button1_x) / 2, config::child_window::main_button1_h, SWP_NOZORDER);
+
+		SetWindowPos(_win_instance->_hwnd_button_delete, nullptr,
+			config::child_window::main_button2_x, config::child_window::main_button2_y,
+			(new_width - config::child_window::main_button1_x) / 2, config::child_window::main_button2_h, SWP_NOZORDER);
 
 		// Изменяем размеры и положение Visual window
 		SetWindowPos(_win_instance->_hwnd_visual, nullptr,
@@ -179,19 +187,7 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 	{	
 		if (_win_instance->_hist_buffer.get_size() == winapp::history_buffer_max_size)
 		{
-			auto first_object_data = _win_instance->_hist_buffer.get_object(0);
-			if (first_object_data.second == DataType::TEXT || first_object_data.second == DataType::FILE_PATH)
-			{
-				DestroyWindow(*_win_instance->_widgets.begin());
-				DestroyWindow(*(_win_instance->_widgets.begin() + 1));
-				_win_instance->_widgets.erase(_win_instance->_widgets.begin(), _win_instance->_widgets.begin() + 2);
-			}
-			else if (first_object_data.second == DataType::IMAGE)
-			{
-				DestroyWindow(*_win_instance->_widgets.begin());
-				_win_instance->_widgets.erase(_win_instance->_widgets.begin());
-			}
-			_win_instance->_hist_buffer.pop_first();
+			_win_instance->_delete_current_element(-1);
 		}
 
 		if (message == MESSAGE_SEND_TEXT)
@@ -242,7 +238,7 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 	{
 		switch (LOWORD(wparam))
 		{
-		case MESSAGE_GET_DATA_FROM_HISTORY:
+		case MESSAGE_GET_CUR_DATA_FROM_HISTORY:
 		{
 			SetFocus(hwnd);
 
@@ -262,9 +258,36 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
 
 			_temp_history_object_data = _win_instance->_hist_buffer.get_object(_win_instance->_hist_buffer.get_size() - 1 - index);
-			SendMessage(_win_instance->_hwnd_parent, MESSAGE_GET_DATA_FROM_HISTORY, NULL, reinterpret_cast<LPARAM>(&_temp_history_object_data));
+			SendMessage(_win_instance->_hwnd_parent, MESSAGE_GET_CUR_DATA_FROM_HISTORY, NULL, reinterpret_cast<LPARAM>(&_temp_history_object_data));
 			break;
 		}
+
+		case MESSAGE_DEL_CUR_DATA_FROM_HISTORY:
+		{
+			SetFocus(hwnd);
+
+			std::wstring str = _win_instance->_get_text_from_edit();
+			if (str.empty())
+				break;
+
+			SetWindowText(_win_instance->_hwnd_edit, L"");
+
+			int16_t index = std::stoi(str);
+			if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
+			{
+				MessageBox(hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
+				break;
+			}
+
+			_win_instance->_delete_current_element(index);
+			_win_instance->_update_scroll_size();
+			_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
+			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
+			
+			InvalidateRect(_win_instance->_hwnd_visual, nullptr, TRUE);
+			break;
+		}
+
 		default:
 			break;
 		}
@@ -529,6 +552,28 @@ std::wstring winapp::ChildWindow::_get_text_from_edit()
 	return wbuffer;
 }
 
+void winapp::ChildWindow::_delete_current_element(int32_t index)
+{
+	if (index == -1)
+		index = 0;
+	else
+		index = _hist_buffer.get_size() - index - 1;
+
+	auto first_object_data = _hist_buffer.get_object(index);
+	if (first_object_data.second == DataType::TEXT || first_object_data.second == DataType::FILE_PATH)
+	{
+		DestroyWindow(*(_widgets.begin() + index));
+		DestroyWindow(*(_widgets.begin() + index + 1));
+		_widgets.erase(_widgets.begin() + index, _widgets.begin() + index + 2);
+	}
+	else if (first_object_data.second == DataType::IMAGE)
+	{
+		DestroyWindow(*(_widgets.begin() + index));
+		_widgets.erase(_widgets.begin() + index);
+	}
+	_hist_buffer.erase(index);
+}
+
 void winapp::ChildWindow::_event_handler_digit_keys(WPARAM symbol)
 {
 	std::wstring str = _win_instance->_get_text_from_edit();
@@ -617,7 +662,7 @@ void winapp::ChildWindow::_event_handler_enter_key()
 	int16_t index = std::stoi(str);
 	if (index < _win_instance->_hist_buffer.get_size())
 	{
-		SendMessage(_win_instance->_hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_DATA_FROM_HISTORY, 0), NULL);
+		SendMessage(_win_instance->_hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_CUR_DATA_FROM_HISTORY, 0), NULL);
 	}
 	else
 	{

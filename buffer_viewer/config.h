@@ -17,7 +17,8 @@ namespace winapp
 		MESSAGE_SEND_TEXT,
 		MESSAGE_SEND_FILEPATH,
 		MESSAGE_SEND_IMAGE,
-		MESSAGE_GET_DATA_FROM_HISTORY
+		MESSAGE_GET_CUR_DATA_FROM_HISTORY,
+		MESSAGE_DEL_CUR_DATA_FROM_HISTORY
 	};
 
 	constexpr int16_t history_buffer_max_size = 100;
@@ -82,10 +83,15 @@ namespace config
 		constexpr int16_t main_edit_w = 50;
 		constexpr int16_t main_edit_h = 20;
 
-		constexpr int16_t main_button_x = main_label_w + main_edit_w + 10;
-		constexpr int16_t main_button_y = 0;
-		constexpr int16_t main_button_w = 230;
-		constexpr int16_t main_button_h = 30;
+		constexpr int16_t main_button1_x = main_label_w + main_edit_w + 10;
+		constexpr int16_t main_button1_y = 0;
+		constexpr int16_t main_button1_w = 115;
+		constexpr int16_t main_button1_h = 30;
+
+		constexpr int16_t main_button2_x = main_button1_x + main_button1_w;
+		constexpr int16_t main_button2_y = 0;
+		constexpr int16_t main_button2_w = 115;
+		constexpr int16_t main_button2_h = 30;
 
 		constexpr int16_t scroll_x = child_window_width - 40;
 		constexpr int16_t scroll_y = main_title_rect_h;
