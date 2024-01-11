@@ -15,15 +15,15 @@ winapp::WinApp::WinApp(LPCWSTR window_name, HINSTANCE hinstance, LPWSTR lp_cmd_l
 
 	_main_window->set_child_window(_child_window->get_hwnd());
 
-	//FILE* conin = stdin;
-	//FILE* conout = stdout;
-	//FILE* conerr = stderr;
-	//AllocConsole();
-	//AttachConsole(GetCurrentProcessId());
-	//freopen_s(&conin, "CONIN$", "r", stdin);
-	//freopen_s(&conout, "CONOUT$", "w", stdout);
-	//freopen_s(&conerr, "CONOUT$", "w", stderr);
-	//SetConsoleTitle(L"appconsole");
+	/*FILE* conin = stdin;
+	FILE* conout = stdout;
+	FILE* conerr = stderr;
+	AllocConsole();
+	AttachConsole(GetCurrentProcessId());
+	freopen_s(&conin, "CONIN$", "r", stdin);
+	freopen_s(&conout, "CONOUT$", "w", stdout);
+	freopen_s(&conerr, "CONOUT$", "w", stderr);
+	SetConsoleTitle(L"appconsole");*/
 }
 
 std::shared_ptr<winapp::WinApp> winapp::WinApp::create(LPCWSTR window_name, HINSTANCE hinstance, LPWSTR lp_cmd_line, int32_t ncmd_show)

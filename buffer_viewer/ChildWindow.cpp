@@ -177,6 +177,23 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 	case MESSAGE_SEND_FILEPATH:
 	case MESSAGE_SEND_IMAGE:
 	{	
+		if (_win_instance->_hist_buffer.get_size() == winapp::history_buffer_max_size)
+		{
+			auto first_object_data = _win_instance->_hist_buffer.get_object(0);
+			if (first_object_data.second == DataType::TEXT || first_object_data.second == DataType::FILE_PATH)
+			{
+				DestroyWindow(*_win_instance->_widgets.begin());
+				DestroyWindow(*(_win_instance->_widgets.begin() + 1));
+				_win_instance->_widgets.erase(_win_instance->_widgets.begin(), _win_instance->_widgets.begin() + 2);
+			}
+			else if (first_object_data.second == DataType::IMAGE)
+			{
+				DestroyWindow(*_win_instance->_widgets.begin());
+				_win_instance->_widgets.erase(_win_instance->_widgets.begin());
+			}
+			_win_instance->_hist_buffer.pop_first();
+		}
+
 		if (message == MESSAGE_SEND_TEXT)
 			_win_instance->_hist_buffer.add_text_data(reinterpret_cast<LPWSTR>(lparam));
 		else if (message == MESSAGE_SEND_FILEPATH)

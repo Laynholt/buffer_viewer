@@ -171,7 +171,7 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 	static HBITMAP hbitmap1{}, hbitmap2{};
 	static WCHAR filePath[MAX_PATH]{};
 
-	static bool crutch_against_event_duplication_when_self_recording_to_the_buffer{};
+	static bool crutch_against_event_duplication_when_self_recording_to_the_buffer{ false };
 
 	switch (message)
 	{

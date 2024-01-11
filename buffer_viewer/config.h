@@ -19,6 +19,8 @@ namespace winapp
 		MESSAGE_SEND_IMAGE,
 		MESSAGE_GET_DATA_FROM_HISTORY
 	};
+
+	constexpr int16_t history_buffer_max_size = 100;
 }
 
 namespace config

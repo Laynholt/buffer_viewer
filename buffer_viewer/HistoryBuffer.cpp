@@ -15,6 +15,41 @@ void winapp::HistoryBuffer::add_image_data(HBITMAP data)
 	_add_data(data, DataType::IMAGE);
 }
 
+void winapp::HistoryBuffer::pop_first()
+{
+	if (!_buffer_ind.size())
+		return;
+
+	auto object_type = _buffer_ind.begin()->second;
+	if (object_type == DataType::TEXT || object_type == DataType::FILE_PATH)
+	{
+		_text_data.erase(_text_data.begin());
+	}
+	else if (object_type == DataType::IMAGE)
+	{
+		_image_data.erase(_image_data.begin());
+	}
+	_buffer_ind.erase(_buffer_ind.begin());
+
+	for (auto& data_ind : _buffer_ind)
+	{
+		if (object_type == DataType::TEXT || object_type == DataType::FILE_PATH)
+		{
+			if (data_ind.second == DataType::TEXT || data_ind.second == DataType::FILE_PATH)
+			{
+				data_ind.first -= 1;
+			}
+		}
+		else if (object_type == DataType::IMAGE)
+		{
+			if (data_ind.second == DataType::IMAGE)
+			{
+				data_ind.first -= 1;
+			}
+		}
+	}
+}
+
 void winapp::HistoryBuffer::clear()
 {
 	_buffer_ind.clear();
