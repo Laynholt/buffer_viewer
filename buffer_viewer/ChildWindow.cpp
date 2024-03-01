@@ -153,8 +153,6 @@ void winapp::ChildWindow::_registration(HINSTANCE hinstance)
 
 LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
-	static std::pair<BaseData*, DataType> _temp_history_object_data{};
-
 	switch (message)
 	{
 	case WM_CREATE:
@@ -169,11 +167,11 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		// Изменяем размеры title button
 		SetWindowPos(_win_instance->_hwnd_button_copy, nullptr,
 			config::child_window::main_button1_x, config::child_window::main_button1_y,
-			(new_width - config::child_window::main_button1_x) / 2, config::child_window::main_button1_h, SWP_NOZORDER);
+			config::child_window::main_button1_w, config::child_window::main_button1_h, SWP_NOZORDER);
 
 		SetWindowPos(_win_instance->_hwnd_button_delete, nullptr,
 			config::child_window::main_button2_x, config::child_window::main_button2_y,
-			(new_width - config::child_window::main_button1_x) / 2, config::child_window::main_button2_h, SWP_NOZORDER);
+			(new_width - config::child_window::main_button2_x), config::child_window::main_button2_h, SWP_NOZORDER);
 
 		// Изменяем размеры и положение Visual window
 		SetWindowPos(_win_instance->_hwnd_visual, nullptr,
@@ -204,13 +202,15 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 
 		if (message == MESSAGE_SEND_TEXT || message == MESSAGE_SEND_FILEPATH)
 		{
-			_win_instance->_widgets.push_back(CreateWindow(L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
+			_win_instance->_widgets.push_back(CreateWindow(L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
 				config::child_window::edit_x, config::child_window::edit_y, config::child_window::edit_w, config::child_window::edit_h,
 				_win_instance->_hwnd_visual, nullptr, nullptr, nullptr));
 
 			SendMessage(_win_instance->_widgets.back(), WM_SETFONT, reinterpret_cast<WPARAM>(_win_instance->_font_edit), TRUE);
 			SendMessage(_win_instance->_widgets.back(), EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(config::main_window::edit_text_padding,
 				config::main_window::edit_text_padding));
+
+			SetWindowSubclass(_win_instance->_widgets.back(), MultiEditSubClassProc, NULL, NULL);
 		}
 		_win_instance->_update_scroll_size();
 
@@ -240,51 +240,13 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		{
 		case MESSAGE_GET_CUR_DATA_FROM_HISTORY:
 		{
-			SetFocus(hwnd);
-
-			std::wstring str = _win_instance->_get_text_from_edit();
-			if (str.empty())
-				break;
-
-			SetWindowText(_win_instance->_hwnd_edit, L"");
-
-			int16_t index = std::stoi(str);
-			if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
-			{
-				MessageBox(hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
-				break;
-			}
-
-			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
-
-			_temp_history_object_data = _win_instance->_hist_buffer.get_object(_win_instance->_hist_buffer.get_size() - 1 - index);
-			SendMessage(_win_instance->_hwnd_parent, MESSAGE_GET_CUR_DATA_FROM_HISTORY, NULL, reinterpret_cast<LPARAM>(&_temp_history_object_data));
+			_win_instance->_event_handler_enter_key();
 			break;
 		}
 
 		case MESSAGE_DEL_CUR_DATA_FROM_HISTORY:
 		{
-			SetFocus(hwnd);
-
-			std::wstring str = _win_instance->_get_text_from_edit();
-			if (str.empty())
-				break;
-
-			SetWindowText(_win_instance->_hwnd_edit, L"");
-
-			int16_t index = std::stoi(str);
-			if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
-			{
-				MessageBox(hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
-				break;
-			}
-
-			_win_instance->_delete_current_element(index);
-			_win_instance->_update_scroll_size();
-			_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
-			_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
-			
-			InvalidateRect(_win_instance->_hwnd_visual, nullptr, TRUE);
+			_win_instance->_event_handler_delete_key();
 			break;
 		}
 
@@ -302,6 +264,11 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 			_win_instance->_event_handler_enter_key();
 			return 0;
 		}
+		case VK_DELETE:
+		{
+			_win_instance->_event_handler_delete_key();
+			return 0;
+		}
 		case VK_BACK:
 		{
 			_win_instance->_event_handler_backspace_key();
@@ -311,6 +278,11 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		case '6': case '7': case '8': case '9': case '0':
 		{
 			_win_instance->_event_handler_digit_keys(wparam);
+			return 0;
+		}
+		case 'A':
+		{
+			_win_instance->_event_handler_ctrlA_key();
 			return 0;
 		}
 		case VK_UP:
@@ -652,23 +624,88 @@ void winapp::ChildWindow::_event_handler_backspace_key()
 
 void winapp::ChildWindow::_event_handler_enter_key()
 {
+	static std::pair<BaseData*, DataType> _temp_history_object_data{};
+
 	SetFocus(_win_instance->_hwnd);
 
 	std::wstring str = _win_instance->_get_text_from_edit();
-
 	if (str.empty())
 		return;
 
+	SetWindowText(_win_instance->_hwnd_edit, L"");
+
 	int16_t index = std::stoi(str);
-	if (index < _win_instance->_hist_buffer.get_size())
-	{
-		SendMessage(_win_instance->_hwnd, WM_COMMAND, MAKEWPARAM(MESSAGE_GET_CUR_DATA_FROM_HISTORY, 0), NULL);
-	}
-	else
+	if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
 	{
 		MessageBox(_win_instance->_hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
-		SetWindowText(_win_instance->_hwnd_edit, L"");
+		return;
 	}
+
+	_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
+
+	_temp_history_object_data = _win_instance->_hist_buffer.get_object(_win_instance->_hist_buffer.get_size() - 1 - index);
+	SendMessage(_win_instance->_hwnd_parent, MESSAGE_GET_CUR_DATA_FROM_HISTORY, NULL, reinterpret_cast<LPARAM>(&_temp_history_object_data));
+}
+
+void winapp::ChildWindow::_event_handler_ctrlA_key()
+{
+	// Если нажат Ctrl + A, выделяем весь текст в элементе управления Edit
+	if (GetKeyState(VK_CONTROL) & 0x8000)
+	{
+		SendMessage(_win_instance->_hwnd_edit, EM_SETSEL, 0, -1);
+	}
+}
+
+void winapp::ChildWindow::_event_handler_delete_key()
+{
+	SetFocus(_win_instance->_hwnd);
+
+	std::wstring str = _win_instance->_get_text_from_edit();
+	if (str.empty())
+		return;
+
+	SetWindowText(_win_instance->_hwnd_edit, L"");
+
+	int16_t index = std::stoi(str);
+	if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
+	{
+		MessageBox(_win_instance->_hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
+		return;
+	}
+
+	_win_instance->_delete_current_element(index);
+	_win_instance->_update_scroll_size();
+	_win_instance->_set_scroll_pos(_win_instance->_get_widget_pack_position(index));
+	_win_instance->_old_scroll_pos = _win_instance->_scroll_pos;
+
+	InvalidateRect(_win_instance->_hwnd_visual, nullptr, TRUE);
+}
+
+LRESULT CALLBACK winapp::ChildWindow::MultiEditSubClassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, UINT_PTR idsubclass, DWORD_PTR refdata)
+{
+	switch (message)
+	{
+	case WM_MOUSEWHEEL:
+		SendMessage(_win_instance->_hwnd_visual, WM_MOUSEWHEEL, wparam, lparam);
+		break;
+
+	case WM_VSCROLL:
+		SendMessage(_win_instance->_hwnd_visual, WM_VSCROLL, wparam, lparam);
+		break;
+
+	case WM_KEYDOWN:
+		SetFocus(_win_instance->_hwnd);
+		SendMessage(_win_instance->_hwnd, WM_KEYDOWN, wparam, lparam);
+		break;
+
+	case WM_NCDESTROY:
+	{
+		RemoveWindowSubclass(hwnd, MultiEditSubClassProc, idsubclass);
+		break;
+	}
+	}
+
+	return DefSubclassProc(hwnd, message, wparam, lparam);
 }
 
 LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, UINT_PTR idsubclass, DWORD_PTR refdata)
@@ -684,13 +721,15 @@ LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, 
 			return 0;
 		}
 
+		case VK_BACK:
+		{
+			_win_instance->_event_handler_backspace_key();
+			return 0;
+		}
+
 		case 'A':
-			// Если нажат Ctrl + A, выделяем весь текст в элементе управления Edit
-			if (GetKeyState(VK_CONTROL) & 0x8000)
-			{
-				SendMessage(hwnd, EM_SETSEL, 0, -1);
-				return 0;
-			}
+			_win_instance->_event_handler_ctrlA_key();
+			return 0;
 		}
 		
 		break;
@@ -701,11 +740,6 @@ LRESULT CALLBACK winapp::ChildWindow::EditSubClassProc(HWND hwnd, UINT message, 
 		if (iswdigit(wparam))
 		{
 			_win_instance->_event_handler_digit_keys(wparam);
-			return 0;
-		}
-		else if (wparam == VK_BACK)
-		{
-			_win_instance->_event_handler_backspace_key();
 			return 0;
 		}
 		else

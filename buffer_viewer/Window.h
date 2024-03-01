@@ -64,5 +64,9 @@ namespace winapp
 		HBRUSH _brush_bg{ nullptr }, _brush_label_bg{ nullptr }, _brush_edit_bg{ nullptr };
 
 		HWND _child{ nullptr };
+
+	private:
+		bool _ctrl_c_pressed_flag{ false };
+		bool _was_copied_from_buffer{ false };
 	};
 }

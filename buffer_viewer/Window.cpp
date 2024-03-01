@@ -47,6 +47,7 @@ winapp::Window::Window(LPCWSTR class_name, LPCWSTR window_name, int32_t x, int32
 
 	_hmenu = CreateMenu();
 	AppendMenu(_hmenu, MF_STRING, MESSAGE_MENU_HISTORY, L"Открыть историю");
+	AppendMenu(_hmenu, MF_STRING, MESSAGE_MENU_ABOUT, L"Справка");
 
 	// Инициализация данных для иконки в трее
 	_notify_data.cbSize = sizeof(NOTIFYICONDATA);
@@ -75,7 +76,7 @@ LRESULT winapp::Window::KeyboardHookProc(int32_t code, WPARAM wparam, LPARAM lpa
 	{
 		// Обработка клавиш
 		KBDLLHOOKSTRUCT* key_info = reinterpret_cast<KBDLLHOOKSTRUCT*>(lparam);
-		// Проверка на сочетание клавиш Ctrl + Alt + D
+		// Проверка на сочетание клавиш Alt + D
 		if (key_info->vkCode == 'D' && (GetAsyncKeyState(VK_MENU) & 0x8000)) // && (GetAsyncKeyState(VK_CONTROL) & 0x8000)
 		{
 			ShowWindow(_win_instance->_child, SW_SHOWNORMAL);
@@ -83,6 +84,16 @@ LRESULT winapp::Window::KeyboardHookProc(int32_t code, WPARAM wparam, LPARAM lpa
 		else if (key_info->vkCode == 'E' && (GetAsyncKeyState(VK_MENU) & 0x8000))
 		{
 			ShowWindow(_win_instance->_child, SW_HIDE);
+		}
+
+		if (key_info->vkCode == 'C' && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+		{
+			_win_instance->_ctrl_c_pressed_flag = true;
+		}
+		else
+		{
+			_win_instance->_ctrl_c_pressed_flag = false;
+			_win_instance->_was_copied_from_buffer = false;
 		}
 	}
 
@@ -180,8 +191,17 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 		AddClipboardFormatListener(hwnd);
 		return 0;
 	}
+
 	case WM_CLIPBOARDUPDATE:
 	{
+		if (_win_instance->_ctrl_c_pressed_flag)
+		{
+			if (_win_instance->_was_copied_from_buffer)
+				break;
+			else
+				_win_instance->_was_copied_from_buffer = true;
+		}
+
 		if (wparam == 1)
 		{
 			if (crutch_against_event_duplication_when_self_recording_to_the_buffer)
@@ -468,6 +488,15 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 		case MESSAGE_MENU_HISTORY:
 			ShowWindow(_win_instance->_child, SW_SHOWNORMAL);
 			break;
+
+		case MESSAGE_MENU_ABOUT:
+		{
+			std::wstring about_text = std::wstring(L"Версия программы: ") + config::program_version 
+				+ std::wstring(L"\nАвтор: laynholt\n") + std::wstring(L"Дата написания: ") + config::program_date;
+
+			MessageBox(NULL, about_text.c_str(), L"Справка", MB_ICONINFORMATION | MB_OK);
+			break;
+		}
 
 		case MESSAGE_TRAY_OPEN_HISTORY:
 			ShowWindow(_win_instance->_child, SW_SHOWNORMAL);

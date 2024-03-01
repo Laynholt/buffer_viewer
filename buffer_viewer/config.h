@@ -7,9 +7,10 @@ namespace winapp
 	enum CustomMessage
 	{
 		MESSAGE_MENU_CREATE = WM_USER + 0x0001,
-		MESSAGE_MENU_HISTORY = WM_USER + 0x0002,
+		MESSAGE_MENU_HISTORY,
+		MESSAGE_MENU_ABOUT,
 		
-		MESSAGE_TRAY_CALLBACK = WM_USER + 0x0003,
+		MESSAGE_TRAY_CALLBACK = WM_USER + 0x0004,
 		MESSAGE_TRAY_OPEN_HISTORY,
 		MESSAGE_TRAY_CLEAR_HISTORY,
 		MESSAGE_TRAY_CLOSE_APP,
@@ -26,6 +27,9 @@ namespace winapp
 
 namespace config
 {
+	constexpr const wchar_t* program_version = L"1.4";
+	constexpr const wchar_t* program_date = L"02/2024";
+
 	namespace main_window 
 	{
 		constexpr int16_t label_x = 0;

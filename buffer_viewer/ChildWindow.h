@@ -33,6 +33,7 @@ namespace winapp
 		static LRESULT CALLBACK ChildWindowEventHander(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
 		static LRESULT CALLBACK SubChildWindowEventHander(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
 
+		static LRESULT CALLBACK MultiEditSubClassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, UINT_PTR idsubclass, DWORD_PTR refdata);
 		static LRESULT CALLBACK EditSubClassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, UINT_PTR idsubclass, DWORD_PTR refdata);
 
 		void _set_scroll_pos(int32_t pos_delta);
@@ -47,6 +48,8 @@ namespace winapp
 		void _event_handler_digit_keys(WPARAM symbol);
 		void _event_handler_backspace_key();
 		void _event_handler_enter_key();
+		void _event_handler_ctrlA_key();
+		void _event_handler_delete_key();
 
 	private:
 		static std::shared_ptr<ChildWindow> _win_instance;
