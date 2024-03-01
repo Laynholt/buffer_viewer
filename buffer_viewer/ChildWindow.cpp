@@ -355,7 +355,15 @@ LRESULT CALLBACK winapp::ChildWindow::SubChildWindowEventHander(HWND hwnd, UINT 
 
 				_current_widget_pos += config::child_window::label_h + config::child_window::edit_padding_y;
 
-				SetWindowText(_win_instance->_widgets[wcouter], static_cast<TextData*>(data.first)->get_data().c_str());
+				auto widget_full_text = static_cast<TextData*>(data.first)->get_data();
+				std::wstring widget_view_text;
+
+				if (widget_full_text.size() > winapp::history_buffer_max_symbols_size)
+					widget_view_text = widget_full_text.substr(0, winapp::history_buffer_max_symbols_size);
+				else
+					widget_view_text = widget_full_text;
+
+				SetWindowText(_win_instance->_widgets[wcouter], widget_view_text.c_str());
 				SetWindowPos(_win_instance->_widgets[wcouter++], nullptr,
 					config::child_window::edit_x, _current_widget_pos - pos, config::child_window::edit_w, config::child_window::edit_h, SWP_NOZORDER);
 

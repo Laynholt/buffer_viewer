@@ -22,7 +22,8 @@ namespace winapp
 		MESSAGE_DEL_CUR_DATA_FROM_HISTORY
 	};
 
-	constexpr int16_t history_buffer_max_size = 100;
+	constexpr int16_t history_buffer_max_size = 50;
+	constexpr int16_t history_buffer_max_symbols_size = 800;
 }
 
 namespace config
