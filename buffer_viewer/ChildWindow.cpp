@@ -336,7 +336,7 @@ LRESULT CALLBACK winapp::ChildWindow::SubChildWindowEventHander(HWND hwnd, UINT 
 		int16_t rev_counter{};
 		int16_t wcouter{};
 
-		int16_t pos = _win_instance->_scroll_pos;
+		int32_t pos = _win_instance->_scroll_pos;
 		rev_counter = buffer_size = _win_instance->_hist_buffer.get_size() - 1;
 
 		for (int16_t counter = 0; counter <= buffer_size; ++counter, --rev_counter)
