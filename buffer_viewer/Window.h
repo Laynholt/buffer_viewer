@@ -7,6 +7,8 @@
 #include <memory>
 #include <string>
 #include <cstdint>
+#include <vector>
+#include <sstream>
 
 #include "config.h"
 #include "resource.h"

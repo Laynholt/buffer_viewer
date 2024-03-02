@@ -180,7 +180,7 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 {
 	static LPWSTR text{};
 	static HBITMAP hbitmap1{}, hbitmap2{};
-	static WCHAR filePath[MAX_PATH]{};
+	static std::wstring file_paths;
 
 	static bool crutch_against_event_duplication_when_self_recording_to_the_buffer{ false };
 
@@ -267,19 +267,25 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 					if (hdrop != nullptr)
 					{
 						// Получаем количество файлов в списке
-						UINT numFiles = DragQueryFile(hdrop, 0xFFFFFFFF, nullptr, 0);
+						UINT num_files = DragQueryFile(hdrop, 0xFFFFFFFF, nullptr, 0);
+						WCHAR file_path[MAX_PATH]{};
 
-						if (numFiles > 0)
+						file_paths.clear();
+						for (int16_t i = 0; i < num_files; ++i)
 						{
-							// Получаем путь к первому файлу в списке
-							DragQueryFile(hdrop, 0, filePath, MAX_PATH);
+							if (i > 0)
+								file_paths += L"\r\n";
 
-							_win_instance->set_label_text(L"В буфере обмена сейчас файл:");
-							ShowWindow(_win_instance->get_hwnd_edit(), SW_SHOW);
-							_win_instance->set_edit_text(filePath);
+							// Получаем путь к i-ому файлу в списке
+							DragQueryFile(hdrop, i, file_path, MAX_PATH);
+							file_paths += file_path;
 						}
+						_win_instance->set_label_text(L"В буфере обмена сейчас файл(ы):");
+						ShowWindow(_win_instance->get_hwnd_edit(), SW_SHOW);
+						_win_instance->set_edit_text(file_paths.c_str());
+
 						GlobalUnlock(hdata);
-						SendMessage(_win_instance->_child, MESSAGE_SEND_FILEPATH, NULL, reinterpret_cast<LPARAM>(filePath));
+						SendMessage(_win_instance->_child, MESSAGE_SEND_FILEPATH, NULL, reinterpret_cast<LPARAM>(file_paths.c_str()));
 					}
 				}
 			}
@@ -361,17 +367,61 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 
 			else if (data->second == DataType::FILE_PATH)
 			{
-				// Проверяем, не удален ли файл
-				DWORD file_avaliable = GetFileAttributes(static_cast<TextData*>(data->first)->get_data().c_str());
-				if (file_avaliable == INVALID_FILE_ATTRIBUTES)
+				auto files_data = static_cast<TextData*>(data->first)->get_data();
+				std::vector<std::wstring> file_paths;
+				std::vector<int16_t> unavaliable_files;
+				std::wistringstream file_paths_stream(files_data);
+				std::wstring file_path;
+
+				// Разбиваем строку на подстроки по строке L"\r\n"
+				while (std::getline(file_paths_stream, file_path, L'\n'))
 				{
-					MessageBox(hwnd, L"Файл по указанному пути был удален!", L"Ошибка", MB_OK | MB_ICONERROR);
-					break;
+					if (!file_path.empty() && file_path.back() == L'\r')
+					{
+						file_path.pop_back(); // Удаляем символ L'\r'
+					}
+					file_paths.push_back(file_path);
 				}
 
-				// https://stackoverflow.com/questions/25708895/how-to-copy-files-by-win32-api-functions-and-paste-by-ctrlv-in-my-desktop
+				file_path.clear();
+				int16_t count{ 0 };
+				for (auto& path : file_paths)
+				{
+					// Проверяем, не удален ли файл
+					DWORD file_avaliable = GetFileAttributes(path.c_str());
+					if (file_avaliable == INVALID_FILE_ATTRIBUTES)
+					{
+						unavaliable_files.push_back(count);
+						
+						if (count > 0)
+							file_path += L"\r\n";
+						file_path += path;
+					}
+					++count;
+				}
+
+				if (unavaliable_files.size())
+				{
+					file_path = L"Список недоступных файлов:\r\n" + file_path;
+					// Выводим все недостуные файлы и удаляем их из общего списка
+					MessageBox(hwnd, file_path.c_str(), L"Ошибка", MB_OK | MB_ICONERROR);
+
+					// Если все файлы недоступны, то выходим
+					if (unavaliable_files.size() == file_paths.size())
+						break;
+					
+					for (int16_t i = 0; i < unavaliable_files.size(); ++i)
+						file_paths.erase(file_paths.begin() + unavaliable_files[i] - i);
+				}
+
+				// https://stackoverflow.com/questions/25708895/how-to-copy-files-by-win32-api-functions-and-paste-by-ctrlv-in-my-
+				// Считаем размер всех файлов для выделения памяти
+				int32_t size = sizeof(DROPFILES);
+				for (auto& path : file_paths)
+					size += (path.size() + 1) * sizeof(WCHAR);  // + 1 => '\0'
+				size += sizeof(WCHAR); // два \0 нужно для корректной работы
+
 				// https://devblogs.microsoft.com/oldnewthing/20130520-00/?p=4313
-				int32_t size = sizeof(DROPFILES) + (static_cast<TextData*>(data->first)->get_data().size() + 2) * sizeof(WCHAR);
 				HGLOBAL hglobal = GlobalAlloc(GMEM_MOVEABLE, size);
 				if (hglobal != nullptr)
 				{
@@ -381,9 +431,15 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 						ZeroMemory(pglobal, size);
 						pglobal->pFiles = sizeof(DROPFILES);
 						pglobal->fWide = TRUE;
-						LPWSTR ptr = reinterpret_cast<LPWSTR>(pglobal + 1);
-						lstrcpyW(ptr, static_cast<TextData*>(data->first)->get_data().c_str());
 
+						// Копируем пути в аллоцированную память
+						LPWSTR ptr = reinterpret_cast<LPWSTR>(pglobal + 1);
+						for (auto& path : file_paths)
+						{
+							lstrcpyW(ptr, path.c_str());
+							ptr = ptr + path.size() + 1; // + 1, чтобы не перезаписать \0
+						}
+						
 						GlobalUnlock(hglobal);
 						SetClipboardData(CF_HDROP, hglobal);
 					}
