@@ -344,7 +344,7 @@ LRESULT CALLBACK winapp::ChildWindow::SubChildWindowEventHander(HWND hwnd, UINT 
 			auto data = _win_instance->_hist_buffer.get_object(counter);
 
 			std::wstring str_num = std::to_wstring(rev_counter);
-			std::wstring title = data.second == DataType::TEXT ? L"] Текст:" : data.second == DataType::FILE_PATH ? L"] Файл:" : L"] Изображение";
+			std::wstring title = data.second == DataType::TEXT ? L"] Текст:" : data.second == DataType::FILE_PATH ? L"] Файл(ы):" : L"] Изображение";
 			title = str_num + title;
 
 			if (data.second == DataType::TEXT || data.second == DataType::FILE_PATH)
@@ -645,7 +645,7 @@ void winapp::ChildWindow::_event_handler_enter_key()
 	int16_t index = std::stoi(str);
 	if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
 	{
-		MessageBox(_win_instance->_hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
+		MessageBox(_win_instance->_hwnd, L"Некорректный индекс!", L"Ошибка", MB_OK | MB_ICONERROR); //MB_ICONINFORMATION
 		return;
 	}
 
@@ -677,7 +677,7 @@ void winapp::ChildWindow::_event_handler_delete_key()
 	int16_t index = std::stoi(str);
 	if (index < 0 || index >= _win_instance->_hist_buffer.get_size())
 	{
-		MessageBox(_win_instance->_hwnd, L"Некорректный индекс!", L"Info", MB_OK | MB_ICONINFORMATION);
+		MessageBox(_win_instance->_hwnd, L"Некорректный индекс!", L"Ошибка", MB_OK | MB_ICONERROR); //MB_ICONINFORMATION
 		return;
 	}
 
@@ -702,7 +702,6 @@ LRESULT CALLBACK winapp::ChildWindow::MultiEditSubClassProc(HWND hwnd, UINT mess
 		break;
 
 	case WM_KEYDOWN:
-		SetFocus(_win_instance->_hwnd);
 		SendMessage(_win_instance->_hwnd, WM_KEYDOWN, wparam, lparam);
 		break;
 

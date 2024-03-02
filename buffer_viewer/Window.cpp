@@ -65,6 +65,7 @@ winapp::Window::Window(LPCWSTR class_name, LPCWSTR window_name, int32_t x, int32
 	_hmenu_tray = CreatePopupMenu();
 	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_OPEN_HISTORY, TEXT("Открыть историю"));
 	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_CLEAR_HISTORY, TEXT("Очистить историю"));
+	AppendMenu(_hmenu_tray, MF_SEPARATOR, 0, NULL);
 	AppendMenu(_hmenu_tray, MF_STRING, MESSAGE_TRAY_CLOSE_APP, TEXT("Выход"));
 
 	_hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookProc, _hinstance, NULL);
