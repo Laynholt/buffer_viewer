@@ -393,7 +393,7 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 					{
 						unavaliable_files.push_back(count);
 						
-						if (count > 0)
+						if (unavaliable_files.size() > 1)
 							file_path += L"\r\n";
 						file_path += path;
 					}
