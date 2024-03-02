@@ -28,7 +28,7 @@ namespace winapp
 
 namespace config
 {
-	constexpr const wchar_t* program_version = L"1.4";
+	constexpr const wchar_t* program_version = L"1.4.1";
 	constexpr const wchar_t* program_date = L"02/2024";
 
 	namespace main_window 

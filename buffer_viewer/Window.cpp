@@ -76,14 +76,22 @@ LRESULT winapp::Window::KeyboardHookProc(int32_t code, WPARAM wparam, LPARAM lpa
 	{
 		// Обработка клавиш
 		KBDLLHOOKSTRUCT* key_info = reinterpret_cast<KBDLLHOOKSTRUCT*>(lparam);
-		// Проверка на сочетание клавиш Alt + D
-		if (key_info->vkCode == 'D' && (GetAsyncKeyState(VK_MENU) & 0x8000)) // && (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+		// Проверка на сочетание клавиш Ctrl + Alt + D
+		if (key_info->vkCode == 'D' && (GetAsyncKeyState(VK_MENU) & 0x8000))// && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
 		{
-			ShowWindow(_win_instance->_child, SW_SHOWNORMAL);
-		}
-		else if (key_info->vkCode == 'E' && (GetAsyncKeyState(VK_MENU) & 0x8000))
-		{
-			ShowWindow(_win_instance->_child, SW_HIDE);
+			if (!IsWindowVisible(_win_instance->_child))
+			{
+				// Показываем окно
+				ShowWindow(_win_instance->_child, SW_SHOWNORMAL);
+				// Закрепляем на переднем плане
+				SetWindowPos(_win_instance->_child, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+				//// Устанавливаем фокус на окно
+				SetForegroundWindow(_win_instance->_child);
+			}
+			else
+			{
+				ShowWindow(_win_instance->_child, SW_HIDE);
+			}
 		}
 
 		if (key_info->vkCode == 'C' && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
