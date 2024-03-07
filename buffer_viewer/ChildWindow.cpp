@@ -308,6 +308,17 @@ LRESULT CALLBACK winapp::ChildWindow::ChildWindowEventHander(HWND hwnd, UINT mes
 		return reinterpret_cast<LRESULT>(_win_instance->_brush_title);
 	}
 
+	case WM_SYSCOMMAND:
+		// Обработка системных команд
+		switch (LOWORD(wparam))
+		{
+		case SC_MINIMIZE:
+			// Обработка команды сворачивания окна
+			ShowWindow(hwnd, SW_HIDE);  // Скрыть окно
+			return 0;
+		}
+		break;
+
 	case WM_CLOSE:
 		ShowWindow(hwnd, SW_HIDE);
 		return 0;

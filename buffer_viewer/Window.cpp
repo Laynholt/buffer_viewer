@@ -287,8 +287,9 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 
 							// Получаем путь к i-ому файлу в списке
 							DragQueryFile(hdrop, i, file_path, MAX_PATH);
-							file_paths += file_path;
+							file_paths += file_path; 
 						}
+
 						_win_instance->set_label_text(L"В буфере обмена сейчас файл(ы):");
 						ShowWindow(_win_instance->get_hwnd_edit(), SW_SHOW);
 						_win_instance->set_edit_text(file_paths.c_str());
@@ -445,7 +446,7 @@ LRESULT CALLBACK winapp::Window::MainWindowEventHander(HWND hwnd, UINT message, 
 						LPWSTR ptr = reinterpret_cast<LPWSTR>(pglobal + 1);
 						for (auto& path : file_paths)
 						{
-							lstrcpyW(ptr, path.c_str());
+							wcscpy(ptr, path.c_str());
 							ptr = ptr + path.size() + 1; // + 1, чтобы не перезаписать \0
 						}
 						

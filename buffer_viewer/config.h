@@ -1,6 +1,12 @@
 #pragma once
-
 #include <cstdint>
+
+//#define DEBUG_MODE
+
+#ifdef DEBUG_MODE
+#include <iostream>
+#endif // DEBUG_MODE
+
 
 namespace winapp
 {
